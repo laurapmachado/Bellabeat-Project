@@ -40,8 +40,7 @@ str(daily_sleepday)
 str(daily_steps)  
 str(heart_rate)
 str(steps_hour)
-  
-  
+
   
 #drop null values
 
@@ -93,28 +92,125 @@ daily_sleepday %>%
 #to make data more usable, some tables were joined 
 
 join_sleep_activity <-merge(daily_sleepday,daily_activity,by="Id")
-join_sleep_activity_heart <- merge(join_sleep_activity, heart_rate, by='Id')
 join_calories_steps <- merge(daily_calories,daily_steps,by="Id")
 join_calories_intensities <-merge(daily_calories,daily_intensities,by="Id")
 
-View(join_calories_steps)
+head(join_sleep_activity)
+
+
+#calculate averages by id
+
+daily_average <- join_sleep_activity %>%
+  group_by(Id) %>%
+  summarise (mean_daily_steps = mean(TotalSteps), mean_daily_calories = mean(Calories), mean_daily_sleep = mean(TotalMinutesAsleep))
+
+head(daily_average)
+
+
+#categorize types of users by the number of daily steps
+
+daily_average_steps <- daily_average %>%
+  mutate(user_type = case_when(
+    mean_daily_steps < 3000 ~ "sedentary",
+    mean_daily_steps >= 3000 & mean_daily_steps < 5000 ~ "moderate active", 
+    mean_daily_steps >= 5000 & mean_daily_steps < 8000 ~ "very active", 
+    mean_daily_steps >= 8000 ~ "super active"))
+
+head(daily_average_steps)
+
+
+user_percentage<- daily_average_steps %>%
+  group_by(user_type) %>%
+  summarise(total = n()) %>%
+  mutate(totals = sum(total)) %>%
+  group_by(user_type) %>%
+  summarise(total_percent = total / totals) %>%
+  mutate(labels = scales::percent(total_percent))
+
+user_percentage$user_type <- factor(user_percentage$user_type , levels = c("super active", "very active", "moderate active", "sedentary"))
+
+
+head(user_percentage)
+
+#visualization: percentage types of users
+
+user_percentage %>%
+  ggplot(aes(x="",y=total_percent, fill=user_type)) +
+  geom_bar(stat = "identity", width = 1)+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  scale_fill_manual(values = c("#9EE2A2","#68E16E", "#0E9C15", "#DA2914")) +
+  geom_text(aes(label = labels),
+            position = position_stack(vjust = 0.5))+
+  labs(title="Types of users percentage")
+
+#categorize types of users by the number of daily steps
+
+
+daily_average_sleep <- daily_average %>%
+  mutate(user_type = case_when(
+    mean_daily_sleep < 250 ~ "sleep deprived",
+    mean_daily_sleep >= 250 & mean_daily_sleep< 425 ~ "little sleep", 
+    mean_daily_sleep >= 425 & mean_daily_sleep < 550 ~ "enough sleep", 
+    mean_daily_sleep >= 550 ~ "too much sleep"))
+
+head(daily_average_sleep)
+
+
+user_percentage_sleep<- daily_average_sleep %>%
+  group_by(user_type) %>%
+  summarise(total = n()) %>%
+  mutate(totals = sum(total)) %>%
+  group_by(user_type) %>%
+  summarise(total_percent = total / totals) %>%
+  mutate(labels = scales::percent(total_percent))
+
+user_percentage_sleep$user_type <- factor(user_percentage_sleep$user_type , levels = c("sleep deprived", "little sleep", "enough sleep", "too much sleep"))
+
+head(user_percentage_sleep)
+
+
+#visualization: percentage types of users
+
+
+user_percentage_sleep %>%
+  ggplot(aes(x="",y=total_percent, fill=user_type)) +
+  geom_bar(stat = "identity", width = 1)+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  scale_fill_manual(values = c("#9EE2A2","#68E16E", "#0E9C15", "#DA2914")) +
+  geom_text(aes(label = labels),
+            position = position_stack(vjust = 0.5))+
+  labs(title="Types of sleep users percentage")
+
+
 
 #visualization: relationship between burnt calories and steps taken 
 
-ggplot(data = join_calories_steps,aes(x=StepTotal,y=Calories))+geom_point(color="orange")
+ggplot(data = join_calories_steps,aes(x=StepTotal,y=Calories))+geom_smooth(color="orange") + xlim(0,20000) + labs(x='Daily Steps', y='Calories', title='Daily Steps vs Calories')
 
-#visualization: what makes burn more calories - time or distance?
+#visualization: relationship between burnt calories and activity duration
 
-ggplot(data = join_calories_intensities, aes(x=VeryActiveMinutes, y=Calories))+geom_point()
-
-
-#visualization: relationship between daily steps and sedentary minutes
-
-ggplot(data=daily_activity) + geom_point(mapping = aes(x=TotalSteps,y=SedentaryMinutes))
-       
-
-#visualization: relationship between daily sleep and daily steps
+ggplot(data = join_calories_intensities, aes(x=VeryActiveMinutes, y=Calories))+geom_smooth() + xlim(0,125) + labs(x='Minutes active', y='Calories', title='Minutes Active vs Calories')
 
 
-ggplot(data=join_sleep_activity,aes(x=TotalTimeInBed,y=TotalSteps))+geom_col(color="blue")
+#visualization: relationship between daily sleep and daily stepsTotalSteps
+
+ggplot(data=join_sleep_activity,aes(x=TotalSteps,y=TotalTimeInBed))+geom_smooth(color="blue") + labs(x='Minutes Asleep', y = 'Daily Steps', title = 'Sleep Duration Vs. Daily Steps')
+
+
 
